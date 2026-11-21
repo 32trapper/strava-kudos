@@ -2,3 +2,8 @@ venv/
 .env
 geckodriver.log
 __pycache__
+/firefox-profile/
+state.json
+strava_processed.json
+*.png
+*.bak

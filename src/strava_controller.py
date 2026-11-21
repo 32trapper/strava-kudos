@@ -49,7 +49,7 @@ class StravaController:
             headless = (
                 self.secrets.get(
                     "STRAVA_HEADLESS",
-                    "false",
+                    "true",
                 ).lower()
                 in ("true", "1", "yes")
             )
@@ -606,158 +606,115 @@ class StravaController:
     # Give kudos
     # -------------------------------------------------------------
 
-    def give_kudos(
-        self,
-        activity_id: int,
-    ) -> bool:
+    def give_kudos(self, activity_id: int):
         """
-        Open a Strava activity and give kudos.
+        Give kudos and verify that Strava registered the action.
 
-        Returns True if kudos were clicked.
-        Returns False if kudos were already given.
+        Returns:
+            "given"         - Kudos successfully applied and verified.
+            "already_given" - Kudos already existed.
+            None            - Could not verify kudos.
         """
 
         activity_url = (
-            f"https://www.strava.com/activities/"
-            f"{activity_id}"
+            f"https://www.strava.com/activities/{activity_id}"
         )
 
-        print(
-            f"Opening activity {activity_id}..."
+        print(f"Opening activity {activity_id}...")
+
+        self.driver.get(activity_url)
+
+        WebDriverWait(self.driver, 20).until(
+            EC.presence_of_element_located(
+                (By.TAG_NAME, "body")
+            )
         )
 
-        self.driver.get(
-            activity_url
-        )
-
-        time.sleep(4)
-
-        # ---------------------------------------------------------
-        # Check for expired session
-        # ---------------------------------------------------------
+        time.sleep(3)
 
         if "/login" in self.driver.current_url:
-
-            print(
-                "Strava session has expired."
-            )
-
+            print("Strava session expired. Logging in...")
             self.login()
+            self.driver.get(activity_url)
 
-            self.driver.get(
-                activity_url
+            WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located(
+                    (By.TAG_NAME, "body")
+                )
             )
 
-            time.sleep(4)
+            time.sleep(3)
 
-        # ---------------------------------------------------------
-        # Already given kudos?
-        # ---------------------------------------------------------
-
-        already_kudos_selectors = [
-            (
-                By.CSS_SELECTOR,
-                'button[title="Remove kudos"]',
-            ),
-            (
-                By.XPATH,
-                "//button[contains(@title, 'Remove kudos')]",
-            ),
+        # These selectors indicate kudos already exist.
+        remove_selectors = [
+            (By.CSS_SELECTOR, 'button[title="Remove kudos"]'),
+            (By.CSS_SELECTOR, 'button[aria-label="Remove kudos"]'),
+            (By.XPATH, "//button[contains(@title, 'Remove kudos')]"),
         ]
 
-        for by, selector in already_kudos_selectors:
+        def kudos_confirmed(driver):
+            for by, selector in remove_selectors:
+                elements = driver.find_elements(by, selector)
 
-            try:
+                for element in elements:
+                    try:
+                        if element.is_displayed():
+                            return element
+                    except Exception:
+                        continue
 
-                elements = self.driver.find_elements(
-                    by,
-                    selector,
-                )
+            return False
 
-                if any(
-                    element.is_displayed()
-                    for element in elements
-                ):
+        # Check whether we already gave kudos.
+        if kudos_confirmed(self.driver):
+            print(f"Activity {activity_id} already has your kudos.")
+            return "already_given"
 
-                    print(
-                        f"Activity {activity_id} "
-                        "already has your kudos."
-                    )
+        print("Looking for Give kudos button...")
 
-                    return False
-
-            except Exception:
-                pass
-
-        # ---------------------------------------------------------
-        # Find Kudos button
-        # ---------------------------------------------------------
-
-        print(
-            "Looking for Give kudos button..."
-        )
-
-        kudos_selectors = [
-            (
-                By.CSS_SELECTOR,
-                'button[title="Give kudos"]',
-            ),
-            (
-                By.CSS_SELECTOR,
-                'button[title*="kudos"]',
-            ),
-            (
-                By.CSS_SELECTOR,
-                '[data-testid="kudos_button"]',
-            ),
-            (
-                By.XPATH,
-                "//button[normalize-space()='Give kudos']",
-            ),
-            (
-                By.XPATH,
-                "//button[contains(., 'Give kudos')]",
-            ),
+        give_selectors = [
+            (By.CSS_SELECTOR, 'button[title="Give kudos"]'),
+            (By.CSS_SELECTOR, 'button[aria-label="Give kudos"]'),
+            (By.XPATH, "//button[normalize-space()='Give kudos']"),
         ]
 
         try:
-
-            kudos_button = (
-                self._find_visible_element(
-                    kudos_selectors,
-                    timeout=20,
-                )
+            kudos_button = self._find_visible_element(
+                give_selectors,
+                timeout=20,
             )
 
         except NoSuchElementException:
+            print("Could not find Give kudos button.")
+            self._save_screenshot("strava_kudos_error.png")
+            return None
+
+        print(f"Clicking kudos for activity {activity_id}...")
+
+        self._click_element(kudos_button)
+
+        # IMPORTANT: Wait for Strava to confirm the action.
+        try:
+            WebDriverWait(self.driver, 10).until(
+                lambda driver: kudos_confirmed(driver)
+            )
 
             print(
-                "Could not find the Give kudos button."
+                f"VERIFIED: Kudos successfully given "
+                f"to activity {activity_id}."
             )
 
-            self._save_screenshot(
-                "strava_kudos_error.png"
+            return "given"
+
+        except TimeoutException:
+            print(
+                f"ERROR: Kudos could not be verified "
+                f"for activity {activity_id}."
             )
 
-            raise
+            self._save_screenshot("strava_kudos_error.png")
 
-        print(
-            f"Giving kudos to activity "
-            f"{activity_id}..."
-        )
-
-        self._click_element(
-            kudos_button
-        )
-
-        time.sleep(2)
-
-        print(
-            f"Kudos completed for activity "
-            f"{activity_id}."
-        )
-
-        return True
+            return None
 
     # -------------------------------------------------------------
     # Comment

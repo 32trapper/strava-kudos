@@ -261,9 +261,16 @@ class StravaFeedWatcher:
                 int(activity_id)
             )
 
-            if result is False:
+            if result in (None, False):
                 print(
                     f"Could not give kudos to "
+                    f"activity {activity_id}."
+                )
+                return
+
+            if result == "already_given":
+                print(
+                    f"→ Already gave kudos to "
                     f"activity {activity_id}."
                 )
                 return
