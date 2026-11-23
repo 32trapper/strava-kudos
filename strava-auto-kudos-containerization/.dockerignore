@@ -1,0 +1,11 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.env
+firefox-profile
+state.json
+strava_processed.json
+*.png
+*.bak
