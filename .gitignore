@@ -7,3 +7,4 @@ state.json
 strava_processed.json
 *.png
 *.bak
+*.oci
