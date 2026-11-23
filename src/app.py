@@ -12,7 +12,7 @@ def main():
     load_dotenv()
 
     controller = StravaController(
-        headless=False
+        headless=True
     )
 
     watcher = StravaFeedWatcher(

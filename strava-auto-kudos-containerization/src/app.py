@@ -11,12 +11,9 @@ def main():
 
     load_dotenv()
 
-    # Preserve the previous interactive default for host runs; Compose sets
-    # STRAVA_HEADLESS=true for unattended container operation.
-    headless = os.getenv("STRAVA_HEADLESS", "false").lower() in (
-        "true", "1", "yes"
+    controller = StravaController(
+        headless=True
     )
-    controller = StravaController(headless=headless)
 
     watcher = StravaFeedWatcher(
         controller
