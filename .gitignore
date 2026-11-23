@@ -7,4 +7,4 @@ state.json
 strava_processed.json
 *.png
 *.bak
-*.oci
+/strava-auto-kudos-containerization/*.oci
